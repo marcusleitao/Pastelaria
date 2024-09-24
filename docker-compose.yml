@@ -1,8 +1,8 @@
-version: '3.8'
-
 services:
   app:
-    image: php:8.2-fpm-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: app
     volumes:
       - .:/var/www/html
