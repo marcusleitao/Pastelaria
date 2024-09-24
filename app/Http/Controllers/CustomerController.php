@@ -11,6 +11,13 @@ class CustomerController extends Controller
     {
         $this->validateCustomer($request);
 
+        // Verifica se o e-mail já está cadastrado
+        $existsEmail = $customer->where('email', $request->email)->whereNull('deleted_at')->exists();
+
+        if ($existsEmail) {
+            return response()->json(['error' => 'E-mail já cadastrado.'], 400);
+        }
+
         $customer = $customer->create([
             'nome' => $request->nome,
             'email' => $request->email,
@@ -121,11 +128,10 @@ class CustomerController extends Controller
 
     private function validateCustomer($request, $isEdit = false)
     {
-        $emailRule = $isEdit ? 'required|email' : 'required|email|unique:customers,email';
-
+        //como estamos utilizando a abordagem softdeleting, não é possível utilizar o unique, pois na criação de um novo registro, o eloquent não leva em conta o campo deleted_at
         $this->validate($request, [
             'nome' => 'required',
-            'email' => $emailRule,
+            'email' => 'required|email',
             'nascimento' => 'required|date',
             'endereco' => 'required',
             'complemento' => 'required',
