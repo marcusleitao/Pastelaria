@@ -19,8 +19,8 @@ $router->get('/', function () use ($router) {
 
 $router->group(['prefix' => 'customers'], function () use ($router) {
     $router->post('/', 'CustomerController@store');
-    //$router->get('/', 'CustomerController@index');
-    //$router->get('/{id}', 'CustomerController@show');
-    //$router->put('/{id}', 'CustomerController@update');
-    //$router->delete('/{id}', 'CustomerController@destroy');
+    $router->get('/', 'CustomerController@index');
+    $router->get('/{id}', 'CustomerController@show');
+    $router->put('/{id}', 'CustomerController@update');
+    $router->delete('/{id}', 'CustomerController@destroy');
 });
