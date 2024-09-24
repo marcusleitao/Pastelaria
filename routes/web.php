@@ -16,3 +16,11 @@
 $router->get('/', function () use ($router) {
     return $router->app->version();
 });
+
+$router->group(['prefix' => 'customers'], function () use ($router) {
+    $router->post('/', 'CustomerController@store');
+    //$router->get('/', 'CustomerController@index');
+    //$router->get('/{id}', 'CustomerController@show');
+    //$router->put('/{id}', 'CustomerController@update');
+    //$router->delete('/{id}', 'CustomerController@destroy');
+});
