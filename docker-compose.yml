@@ -36,6 +36,18 @@ services:
     ports:
       - "5432:5432"
 
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: test
+    volumes:
+      - .:/var/www/html
+    networks:
+      - app-network
+    working_dir: /var/www/html
+    command: ./vendor/bin/phpunit
+
 volumes:
   pgdata:
 

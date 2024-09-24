@@ -128,7 +128,13 @@ class CustomerController extends Controller
 
     private function validateCustomer($request, $isEdit = false)
     {
-        //como estamos utilizando a abordagem softdeleting, não é possível utilizar o unique, pois na criação de um novo registro, o eloquent não leva em conta o campo deleted_at
+        /*
+         * como estamos utilizando a abordagem softdeleting, 
+         * não é possível utilizar o unique, 
+         * pois na criação de um novo registro, 
+         * o eloquent não leva em conta o campo deleted_at
+         */
+
         $this->validate($request, [
             'nome' => 'required',
             'email' => 'required|email',
