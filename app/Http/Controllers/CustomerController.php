@@ -126,7 +126,7 @@ class CustomerController extends Controller
         return response()->json(['message' => 'Cliente deletado com sucesso.'], 200);
     }
 
-    private function validateCustomer($request, $isEdit = false)
+    private function validateCustomer(Request $request)
     {
         /*
          * como estamos utilizando a abordagem softdeleting, 
@@ -135,7 +135,7 @@ class CustomerController extends Controller
          * o eloquent não leva em conta o campo deleted_at
          */
 
-        $this->validate($request, [
+         $rules = [
             'nome' => 'required',
             'email' => 'required|email',
             'nascimento' => 'required|date',
@@ -143,6 +143,20 @@ class CustomerController extends Controller
             'complemento' => 'required',
             'bairro' => 'required',
             'cep' => 'required'
-        ]);
+        ];
+
+        $messages = [
+            'nome.required' => 'O campo nome é obrigatório.',
+            'email.required' => 'O campo e-mail é obrigatório.',
+            'email.email' => 'O campo e-mail deve ser um e-mail válido.',
+            'nascimento.required' => 'O campo nascimento é obrigatório.',
+            'nascimento.date' => 'O campo nascimento deve ser uma data válida.',
+            'endereco.required' => 'O campo endereço é obrigatório.',
+            'complemento.required' => 'O campo complemento é obrigatório.',
+            'bairro.required' => 'O campo bairro é obrigatório.',
+            'cep.required' => 'O campo CEP é obrigatório.'
+        ];
+
+        $this->validate($request, $rules, $messages);
     }
 }
