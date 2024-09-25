@@ -10,7 +10,7 @@
             <td colspan="4">
                 <h2>Detalhes do Pedido</h2>
                 <b>ID do Pedido:</b> {{ $order->id }}<br>
-                <b>Data do Pedido:</b> {{ $order->created_at }}<br>
+                <b>Data do Pedido:</b> {{ $order->created_at->format('d/m/Y H:i') }}<br>
             </td>
         </tr>
         <tr>

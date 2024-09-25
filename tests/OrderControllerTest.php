@@ -25,7 +25,7 @@ class OrderControllerTest extends BaseTestCase
     {
         $customer = Customer::create([
             'nome' => 'Nome Antigo',
-            'email' => 'email@example.com',
+            'email' => 'mavibole@gmail.com', //email valido
             'nascimento' => '1990-01-01',
             'endereco' => 'Rua Antiga, 123',
             'complemento' => 'Apto 123',
@@ -85,6 +85,65 @@ class OrderControllerTest extends BaseTestCase
                     ]
                 ]
             ]
+        ]);
+    }
+
+    public function testStoreOrderNotFoundProduct()
+    {
+        $customer = Customer::create([
+            'nome' => 'Nome Antigo',
+            'email' => 'mavibole@gmail.com', //email valido
+            'nascimento' => '1990-01-01',
+            'endereco' => 'Rua Antiga, 123',
+            'complemento' => 'Apto 123',
+            'bairro' => 'Antigo Bairro',
+            'cep' => '12345-678'
+        ]);
+
+        $orderData = [
+            'customer_id' => $customer->id,
+            'products' => [
+                ['id' => 99, 'quantity' => 2]
+            ]
+        ];
+
+        $response = $this->post('/orders', $orderData);
+        $response->seeStatusCode(422);
+        $response->seeJsonContains([
+            'products.0.id' => ["O produto informado não existe."]
+        ]);
+    }
+
+    public function testStoreOrderInvalidQuantity()
+    {
+        $customer = Customer::create([
+            'nome' => 'Nome Antigo',
+            'email' => 'mavibole@gmail.com', //email valido
+            'nascimento' => '1990-01-01',
+            'endereco' => 'Rua Antiga, 123',
+            'complemento' => 'Apto 123',
+            'bairro' => 'Antigo Bairro',
+            'cep' => '12345-678'
+        ]);
+
+        
+        $product = Product::create([
+            'nome' => 'Produto 1',
+            'preco' => 10.5,
+            'foto' => 'foto1.jpg'
+        ]);
+
+        $orderData = [
+            'customer_id' => $customer->id,
+            'products' => [
+                ['id' => $product->id]
+            ]
+        ];
+
+        $response = $this->post('/orders', $orderData);
+        $response->seeStatusCode(422);
+        $response->seeJsonContains([
+            'products.0.quantity' => ["O campo quantidade do produto é obrigatório."]
         ]);
     }
 }

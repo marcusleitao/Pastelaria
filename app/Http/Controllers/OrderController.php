@@ -53,6 +53,82 @@ class OrderController extends Controller
         }
     }
 
+    public function index()
+    {
+        $orders = Order::with('products:id,nome,preco')
+            ->select('id', 'customer_id', 'created_at', 'updated_at')
+            ->paginate(10);
+
+        return response()->json($orders);
+    }
+
+    public function show($id)
+    {
+        $order = Order::with('products')->find($id);
+
+        if (!$order) {
+            return response()->json(['error' => 'Pedido não encontrado'], 404);
+        }
+
+        return response()->json($order);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $this->validateOrder($request);
+
+        DB::beginTransaction();
+
+        try {
+            $order = Order::findOrFail($id);
+
+            $order->update([
+                'customer_id' => $request->customer_id
+            ]);
+
+            $order->products()->detach();
+
+            foreach ($request->products as $productData) {
+                $product = Product::find($productData['id']);
+
+                if (!$product) {
+                    throw new \Exception("Produto com ID {$productData['id']} não encontrado.");
+                }
+
+                if (!isset($productData['quantity']) || $productData['quantity'] === null) {
+                    throw new \Exception("Quantidade não fornecida para o produto com ID {$productData['id']}.");
+                }
+
+                $order->products()->attach($product['id'], ['quantity' => $productData['quantity']]);
+            }
+
+            DB::commit();
+            
+            $order->load('products');
+
+            $customer = Customer::find($request->customer_id);
+            
+            return response()->json($order, 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
+    }
+
+    public function destroy($id)
+    {
+        $order = Order::find($id);
+
+        if (!$order) {
+            return response()->json(['error' => 'Pedido não encontrado'], 404);
+        }
+
+        $order->delete();
+
+        return response()->json(['message' => 'Pedido removido com sucesso.'], 200);
+    }
+
     private function validateOrder(Request $request) 
     {
         $rules = [
