@@ -1,30 +1,32 @@
-# Lumen PHP Framework
+# Pastelaria
 
-[![Build Status](https://travis-ci.org/laravel/lumen-framework.svg)](https://travis-ci.org/laravel/lumen-framework)
-[![Total Downloads](https://img.shields.io/packagist/dt/laravel/lumen-framework)](https://packagist.org/packages/laravel/lumen-framework)
-[![Latest Stable Version](https://img.shields.io/packagist/v/laravel/lumen-framework)](https://packagist.org/packages/laravel/lumen-framework)
-[![License](https://img.shields.io/packagist/l/laravel/lumen)](https://packagist.org/packages/laravel/lumen-framework)
+Siga os passos abaixo para rodar a aplicação na sua máquina
 
-Laravel Lumen is a stunningly fast PHP micro-framework for building web applications with expressive, elegant syntax. We believe development must be an enjoyable, creative experience to be truly fulfilling. Lumen attempts to take the pain out of development by easing common tasks used in the majority of web projects, such as routing, database abstraction, queueing, and caching.
+> **Requisitos:** É necessário que tenha instalado em sua máquina o Docker e o Docker Compose
 
-> **Note:** In the years since releasing Lumen, PHP has made a variety of wonderful performance improvements. For this reason, along with the availability of [Laravel Octane](https://laravel.com/docs/octane), we no longer recommend that you begin new projects with Lumen. Instead, we recommend always beginning new projects with [Laravel](https://laravel.com).
+## 1º) Clone o repositório em sua máquina
+**Após clonar, acesse a pasta do repositório atraves da sua IDE, copie o conteúdo do arquivo .env.example e cole em um novo arquivo que você vai nomear como .env**
 
-## Official Documentation
+## 2º) Acesse a pasta do repositório pelo terminal e rode o seguinte comando
+```
+docker-compose up -d
+```
 
-Documentation for the framework can be found on the [Lumen website](https://lumen.laravel.com/docs).
+## 3º) Rode as Migrations e os Seeders
 
-## Contributing
+Após subir todos os containers da aplicação, rode os seguintes comandos **(um de cada vez e na ordem especificada abaixo)**
 
-Thank you for considering contributing to Lumen! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```
+docker-compose exec app php artisan migrate
+docker-compose exec app php artisan db:seed
+```
 
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Lumen, please send an e-mail to Taylor Otwell at taylor@laravel.com. All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Lumen framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## 4º) Importe a Collection para seu Insomnia ou Postman
+Baixe a collection pelo [clicando aqui](https://drive.google.com/file/d/1SgwNVsckngZivNCqLv74vl5sFEk_KwG5/view?usp=sharing) e depois importe no seu Insomnia ou Postman
+> OBS: Esta collection foi criada a partir do Insomnia
 
 ## Para Executar os testes
 utilize o comando
+```
 docker-compose run --rm test
+```
