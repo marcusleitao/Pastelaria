@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Customer;
+use App\Mail\OrderPlaced;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
@@ -37,6 +40,10 @@ class OrderController extends Controller
             DB::commit();
             
             $order->load('products');
+
+            $customer = Customer::find($request->customer_id);
+
+            Mail::to($customer->email)->send(new OrderPlaced($order));
             
             return response()->json($order, 201);
 
