@@ -80,6 +80,9 @@ $app->configure('database');
 //     'auth' => App\Http\Middleware\Authenticate::class,
 // ]);
 
+$app->register(Illuminate\Mail\MailServiceProvider::class);
+$app->configure('mail');
+
 /*
 |--------------------------------------------------------------------------
 | Register Service Providers
