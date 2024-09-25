@@ -12,11 +12,12 @@ Siga os passos abaixo para rodar a aplicação na sua máquina
 docker-compose up -d
 ```
 
-## 3º) Rode as Migrations e os Seeders
+## 3º) Instale o Composer, rode as Migrations e os Seeders
 
 Após subir todos os containers da aplicação, rode os seguintes comandos **(um de cada vez e na ordem especificada abaixo)**
 
 ```
+docker-compose exec app composer install
 docker-compose exec app php artisan migrate
 docker-compose exec app php artisan db:seed
 ```
