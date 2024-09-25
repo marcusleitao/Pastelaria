@@ -105,8 +105,6 @@ class OrderController extends Controller
             DB::commit();
             
             $order->load('products');
-
-            $customer = Customer::find($request->customer_id);
             
             return response()->json($order, 200);
 
