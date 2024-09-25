@@ -24,3 +24,11 @@ $router->group(['prefix' => 'customers'], function () use ($router) {
     $router->put('/{id}', 'CustomerController@update');
     $router->delete('/{id}', 'CustomerController@destroy');
 });
+
+$router->group(['prefix' => 'products'], function () use ($router) {
+    $router->post('/', 'ProductController@store');
+    // $router->get('/', 'CustomerController@index');
+    // $router->get('/{id}', 'CustomerController@show');
+    // $router->put('/{id}', 'CustomerController@update');
+    // $router->delete('/{id}', 'CustomerController@destroy');
+});
