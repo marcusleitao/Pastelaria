@@ -12,59 +12,69 @@ class CustomerControllerTest extends TestCase
 
     public function testStoreCustomer()
     {
-        $data = [
-            'nome' => 'John Doe',
-            'email' => 'johndoe@example.com',
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Exemplo, 123',
-            'complemento' => 'Apto 45',
-            'bairro' => 'Bairro Exemplo',
-            'cep' => '12345-678',
-        ];
+        $data = Customer::factory()->make()->toArray();
 
         $response = $this->post('/customers', $data);
         $response->seeStatusCode(201);
-        $response->seeJsonContains(['nome' => 'John Doe']);
+        $response->seeJsonContains(['nome' => $data['nome']]);
+
+        $this->seeInDatabase('customers', ['email' => $data['email']]);
     }
 
     public function testStoreCustomerWithDuplicateEmail()
     {
-        Customer::create([
-            'nome' => 'Jane Doe',
-            'email' => 'janedoe@example.com',
-            'nascimento' => '1985-02-14',
-            'endereco' => 'Rua Teste, 456',
-            'complemento' => 'Casa',
-            'bairro' => 'Bairro Teste',
-            'cep' => '98765-432',
+        Customer::factory()->create([
+            'email' => 'fulano@tal.com.br',
         ]);
 
-        $data = [
-            'nome' => 'John Doe',
-            'email' => 'janedoe@example.com',
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Exemplo, 123',
-            'complemento' => 'Apto 45',
-            'bairro' => 'Bairro Exemplo',
-            'cep' => '12345-678',
-        ];
+        // Cria dados do novo cliente com email duplicado
+        $data = Customer::factory()->make([
+            'email' => 'fulano@tal.com.br',
+        ])->toArray();
 
         $response = $this->post('/customers', $data);
         $response->seeStatusCode(400);
         $response->seeJsonContains(['error' => 'E-mail já cadastrado.']);
     }
 
-    public function testIndexWithValidParameters()
+    public function testStoreCustomerWithoutRequiredFields()
     {
-        Customer::create([
-            'nome' => 'John Doe',
-            'email' => 'johndoe@example.com',
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Exemplo, 123',
-            'complemento' => 'Apto 45',
-            'bairro' => 'Bairro Exemplo',
-            'cep' => '12345-678',
+        $response = $this->post('/customers', []);
+        $response->seeStatusCode(422);
+        $response->seeJsonContains([
+            'nome' => ['O campo nome é obrigatório.'],
+            'email' => ['O campo e-mail é obrigatório.'],
+            'nascimento' => ['O campo nascimento é obrigatório.'],
+            'endereco' => ['O campo endereço é obrigatório.'],
+            'complemento' => ['O campo complemento é obrigatório.'],
+            'bairro' => ['O campo bairro é obrigatório.'],
+            'cep' => ['O campo CEP é obrigatório.'],
         ]);
+    }
+
+    public function testStoreCustomerWithEmailInvalid()
+    {
+        $data = Customer::factory()->make(['email' => 'emailinvalido'])->toArray();
+
+        $response = $this->post('/customers', $data);
+        $response->seeStatusCode(422);
+        $response->seeJsonContains(['email' => ['O campo e-mail deve ser um e-mail válido.']]);
+        $response->notSeeInDatabase('customers', ['email' => $data['email']]);
+    }
+
+    public function testStoreCustomerWithDateInvalid()
+    {
+        $data = Customer::factory()->make(['nascimento' => 'datainvalida'])->toArray();
+
+        $response = $this->post('/customers', $data);
+        $response->seeStatusCode(422);
+        $response->seeJsonContains(['nascimento' => ['O campo nascimento deve ser uma data válida.']]);
+        $response->notSeeInDatabase('customers', ['email' => $data['email']]);
+    }
+
+    public function testIndexCustomerWithValidParameters()
+    {
+        $data = Customer::factory()->create();
 
         $response = $this->get('/customers?sort_by=created_at&sort_direction=asc&per_page=10');
 
@@ -85,9 +95,10 @@ class CustomerControllerTest extends TestCase
                 ]
             ]
         ]);
+        $response->seeInDatabase('customers', ['email' => $data['email']]);
     }
 
-    public function testIndexWithInvalidSortByColumn()
+    public function testIndexCustomerWithInvalidSortByColumn()
     {
         $response = $this->get('/customers?sort_by=invalid_column');
 
@@ -95,7 +106,7 @@ class CustomerControllerTest extends TestCase
         $response->seeJsonContains(['error' => 'Coluna de ordenação inválida.']);
     }
 
-    public function testIndexWithInvalidSortDirection()
+    public function testIndexCustomerWithInvalidSortDirection()
     {
         $response = $this->get('/customers?sort_direction=invalid_direction');
 
@@ -103,7 +114,7 @@ class CustomerControllerTest extends TestCase
         $response->seeJsonContains(['error' => 'Direção de ordenação inválida.']);
     }
 
-    public function testIndexWithInvalidPerPage()
+    public function testIndexCustomerWithInvalidPerPage()
     {
         $response = $this->get('/customers?per_page=-1');
 
@@ -111,52 +122,46 @@ class CustomerControllerTest extends TestCase
         $response->seeJsonContains(['error' => 'Número de itens por página inválido.']);
     }
 
-    public function testShowWithInvalidId()
+    public function testShowCustomerWithInvalidId()
     {
+        Customer::factory()->create();
+
         $response = $this->get('/customers/abc');
         $response->seeStatusCode(400);
         $response->seeJsonContains(['error' => 'ID inválido.']);
+        // Não é possível verificar se há um registro com id 'abc' no banco, pois o tipo do campo id é 'int'
 
         $response = $this->get('/customers/-1');
         $response->seeStatusCode(400);
         $response->seeJsonContains(['error' => 'ID inválido.']);
+        $response->notSeeInDatabase('customers', ['id' => -1]);
     }
 
     public function testShowCustomerNotFound()
     {
-        $response = $this->get('/customers/99999'); // Assumindo que este ID não existe
+        $notFoundId = 99999;
+        Customer::factory()->create();
+
+        $response = $this->get('/customers/' . $notFoundId); // Assumindo que este ID não existe
         $response->seeStatusCode(404);
         $response->seeJsonContains(['error' => 'Cliente não encontrado.']);
+        $response->notSeeInDatabase('customers', ['id' => $notFoundId]);
     }
 
     public function testShowCustomerFound()
     {
-        $customer = Customer::create([
-            'nome' => 'John Doe',
-            'email' => 'johndoe@example.com',
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Exemplo, 123',
-            'complemento' => 'Apto 45',
-            'bairro' => 'Bairro Exemplo',
-            'cep' => '12345-678',
-        ]);
+        $customer = Customer::factory()->create();
 
         $response = $this->get("/customers/{$customer->id}");
         $response->seeStatusCode(200);
-        $response->seeJsonContains([
-            'id' => $customer->id,
-            'nome' => $customer->nome,
-            'email' => $customer->email,
-            'nascimento' => $customer->nascimento,
-            'endereco' => $customer->endereco,
-            'complemento' => $customer->complemento,
-            'bairro' => $customer->bairro,
-            'cep' => $customer->cep
-        ]);
+        $response->seeJsonContains($customer->toArray());
+        $response->seeInDatabase('customers', ['id' => $customer->id]);
     }
 
-    public function testUpdateWithInvalidId()
+    public function testUpdateCustomerWithInvalidId()
     {
+        Customer::factory()->create();
+
         $response = $this->put('/customers/abc', []);
         $response->seeStatusCode(400);
         $response->seeJsonContains(['error' => 'ID inválido.']);
@@ -164,99 +169,106 @@ class CustomerControllerTest extends TestCase
         $response = $this->put('/customers/-1', []);
         $response->seeStatusCode(400);
         $response->seeJsonContains(['error' => 'ID inválido.']);
+        $response->notSeeInDatabase('customers', ['id' => -1]);
     }
+
+    public function testUpdateCustomerWithoutRequiredFields()
+    {
+        $customer = Customer::factory()->create();
+
+        $response = $this->put('/customers/' . $customer->id, []);
+        $response->seeStatusCode(422);
+        $response->seeJsonContains([
+            'nome' => ['O campo nome é obrigatório.'],
+            'email' => ['O campo e-mail é obrigatório.'],
+            'nascimento' => ['O campo nascimento é obrigatório.'],
+            'endereco' => ['O campo endereço é obrigatório.'],
+            'complemento' => ['O campo complemento é obrigatório.'],
+            'bairro' => ['O campo bairro é obrigatório.'],
+            'cep' => ['O campo CEP é obrigatório.'],
+        ]);
+    }
+
+    public function testUpdateCustomerWithEmailInvalid()
+    {
+        $customer = Customer::factory()->create();
+
+        $customer['email'] = 'emailinvalido';
+
+        $response = $this->put('/customers/' . $customer->id, $customer->toArray());
+        $response->seeStatusCode(422);
+        $response->seeJsonContains(['email' => ['O campo e-mail deve ser um e-mail válido.']]);
+        $response->notSeeInDatabase('customers', ['email' => $customer['email']]);
+    }
+
+    public function testUpdateCustomerWithDateInvalid()
+    {
+        $customer = Customer::factory()->create();
+
+        $customer['nascimento'] = 'datainvalida';
+
+        $response = $this->put('/customers/' . $customer->id, $customer->toArray());
+        $response->seeStatusCode(422);
+        $response->seeJsonContains(['nascimento' => ['O campo nascimento deve ser uma data válida.']]);
+    }
+      
 
     public function testUpdateCustomerNotFound()
     {
-        $response = $this->put('/customers/99999', [
-            'nome' => 'Novo Nome',
-            'email' => 'novoemail@example.com',
-            'nascimento' => '2000-01-01',
-            'endereco' => 'Rua Nova, 123',
-            'complemento' => 'Apto 456',
-            'bairro' => 'Centro',
-            'cep' => '12345-678'
-        ]);
+        Customer::factory()->create();
+
+        $notFoundId = 99999;
+
+        $data = Customer::factory()->make()->toArray();
+
+        $response = $this->put('/customers/' . $notFoundId, $data);
 
         $response->seeStatusCode(404);
         $response->seeJsonContains(['error' => 'Cliente não encontrado.']);
+        $response->notSeeInDatabase('customers', ['id' => $notFoundId]);
     }
 
-    public function testUpdateWithExistingEmail()
+    public function testUpdateCustomerWithExistingEmail()
     {
-        $customer1 = Customer::create([
-            'nome' => 'Novo Nome',
-            'email' => 'email1@example.com',
-            'nascimento' => '2000-01-01',
-            'endereco' => 'Rua Nova, 123',
-            'complemento' => 'Apto 456',
-            'bairro' => 'Centro',
-            'cep' => '12345-678'
+        $duplicatedEmail = 'email1@example.com.br';
+
+        Customer::factory()->create([
+            'email' => $duplicatedEmail,
         ]);
 
-        $customer2 = Customer::create([
-            'nome' => 'Novo Nome',
+        $customer2 = Customer::factory()->create([
             'email' => 'email2@example.com',
-            'nascimento' => '2000-01-01',
-            'endereco' => 'Rua Nova, 123',
-            'complemento' => 'Apto 456',
-            'bairro' => 'Centro',
-            'cep' => '12345-678'
         ]);
 
-        $response = $this->put("/customers/{$customer2->id}", [
-            'nome' => 'Novo Nome',
-            'email' => 'email1@example.com', //email duplicado
-            'nascimento' => '2000-01-01',
-            'endereco' => 'Rua Nova, 123',
-            'complemento' => 'Apto 456',
-            'bairro' => 'Centro',
-            'cep' => '12345-678'
-        ]);
+        $customer2['email'] = $duplicatedEmail; //altera apenas o email, mantendo os outros dados
+
+        $response = $this->put("/customers/" . $customer2->id, $customer2->toArray());
 
         $response->seeStatusCode(400);
         $response->seeJsonContains(['error' => 'E-mail já cadastrado.']);
+        $response->NotSeeInDatabase('customers', ['id' => $customer2->id, 'email' => $duplicatedEmail]);
     }
 
     public function testUpdateCustomerSuccessfully()
     {
-        $customer = Customer::create([
-            'nome' => 'Nome Antigo',
-            'email' => 'email@example.com',
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Antiga, 123',
-            'complemento' => 'Apto 123',
-            'bairro' => 'Antigo Bairro',
-            'cep' => '12345-678'
-        ]);
 
-        $updatedData = [
-            'nome' => 'Nome Novo',
-            'email' => 'novonome@example.com',
-            'nascimento' => '1980-01-01',
-            'endereco' => 'Rua Nova, 456',
-            'complemento' => 'Casa 789',
-            'bairro' => 'Novo Bairro',
-            'cep' => '98765-432'
-        ];
+        $customer = Customer::factory()->create();
+
+        $updatedData = Customer::factory()->make()->toArray();
 
         $response = $this->put("/customers/{$customer->id}", $updatedData);
 
+        $updatedData['id'] = $customer->id; // Adiciona o id ao array para comparação
+
         $response->seeStatusCode(200);
-        $response->seeJsonContains([
-            'id' => $customer->id,
-            'nome' => 'Nome Novo',
-            'email' => 'novonome@example.com',
-            'nascimento' => '1980-01-01',
-            'endereco' => 'Rua Nova, 456',
-            'complemento' => 'Casa 789',
-            'bairro' => 'Novo Bairro',
-            'cep' => '98765-432'
-        ]);
+        $response->seeJsonContains($updatedData);
+        $response->seeInDatabase('customers', ['id' => $customer->id] + $updatedData);
     }
 
-    public function testDestroyWithInvalidId()
+    public function testDestroyCustomerWithInvalidId()
     {
+        Customer::factory()->create();
+
         $response = $this->delete('/customers/abc');
         $response->seeStatusCode(400);
         $response->seeJsonContains(['error' => 'ID inválido.']);
@@ -264,33 +276,30 @@ class CustomerControllerTest extends TestCase
         $response = $this->delete('/customers/-1');
         $response->seeStatusCode(400);
         $response->seeJsonContains(['error' => 'ID inválido.']);
+        $response->notSeeInDatabase('customers', ['id' => -1]);
     }
 
     public function testDestroyCustomerNotFound()
     {
-        $response = $this->delete('/customers/99999');
+        $notFoundId = 99999;
+
+        Customer::factory()->create();
+
+        $response = $this->delete('/customers/' . $notFoundId);
 
         $response->seeStatusCode(404);
         $response->seeJsonContains(['error' => 'Cliente não encontrado.']);
+        $response->notSeeInDatabase('customers', ['id' => $notFoundId]);
     }
 
     public function testDestroyCustomerSuccessfully()
     {
-        $customer = Customer::create([
-            'nome' => 'Nome Antigo',
-            'email' => 'email@example.com',
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Antiga, 123',
-            'complemento' => 'Apto 123',
-            'bairro' => 'Antigo Bairro',
-            'cep' => '12345-678'
-        ]);
+        $customer = Customer::factory()->create();
 
         $response = $this->delete("/customers/{$customer->id}");
 
         $response->seeStatusCode(200);
         $response->seeJsonContains(['message' => 'Cliente deletado com sucesso.']);
-
-        $this->assertNull(Customer::find($customer->id));
+        $response->SeeInDatabase('customers', ['id' => $customer->id, 'deleted_at' => date('Y-m-d H:i:s')]);
     }
 }
