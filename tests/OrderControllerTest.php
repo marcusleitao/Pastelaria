@@ -1,64 +1,33 @@
 <?php
 
-namespace Tests;
+namespace Tests\Feature;
 
+use Tests\TestCase;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\Order;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Lumen\Testing\DatabaseMigrations;
-use Laravel\Lumen\Testing\TestCase as BaseTestCase;
 
-class OrderControllerTest extends BaseTestCase
+class OrderControllerTest extends TestCase
 {
     use DatabaseMigrations;
 
-    /**
-     * Creates the application.
-     *
-     * @return \Laravel\Lumen\Application
-     */
-    public function createApplication()
-    {
-        return require __DIR__.'/../bootstrap/app.php';
-    }
-
     public function testStoreOrderSuccessfully()
     {
-        $customer = Customer::create([
-            'nome' => 'Nome Antigo',
-            'email' => 'mavibole@gmail.com', //email valido
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Antiga, 123',
-            'complemento' => 'Apto 123',
-            'bairro' => 'Antigo Bairro',
-            'cep' => '12345-678'
-        ]);
+        Mail::fake();
 
-        $product1 = Product::create([
-            'nome' => 'Produto 1',
-            'preco' => 10.5,
-            'foto' => 'foto1.jpg'
-        ]);
-
-        $product2 = Product::create([
-            'nome' => 'Produto 2',
-            'preco' => 20.5,
-            'foto' => 'foto2.jpg'
-        ]);
-
-        $product3 = Product::create([
-            'nome' => 'Produto 3',
-            'preco' => 30.5,
-            'foto' => 'foto3.jpg'
-        ]);
+        $customer = Customer::factory()->create();
+        $products = Product::factory()->count(3)->create();
 
         $orderData = [
             'customer_id' => $customer->id,
-            'products' => [
-                ['id' => $product1->id, 'quantity' => 2],
-                ['id' => $product2->id, 'quantity' => 3],
-                ['id' => $product3->id, 'quantity' => 1],
-            ]
+            'products' => $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'quantity' => rand(1, 5),
+                ];
+            })->toArray(),
         ];
 
         $response = $this->post('/orders', $orderData);
@@ -87,24 +56,25 @@ class OrderControllerTest extends BaseTestCase
                 ]
             ]
         ]);
+        
+        $response->seeInDatabase('orders', ['customer_id' => $customer->id]);
+
+        Mail::assertSent(function (\Illuminate\Mail\Mailable $mail) use ($customer) {
+            return $mail->hasTo($customer->email);
+        });
     }
 
     public function testStoreOrderNotFoundProduct()
     {
-        $customer = Customer::create([
-            'nome' => 'Nome Antigo',
-            'email' => 'mavibole@gmail.com', //email valido
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Antiga, 123',
-            'complemento' => 'Apto 123',
-            'bairro' => 'Antigo Bairro',
-            'cep' => '12345-678'
-        ]);
+        $notFoundProductId = 999999;
+
+        $customer = Customer::factory()->create();
+        Product::factory()->create();
 
         $orderData = [
             'customer_id' => $customer->id,
             'products' => [
-                ['id' => 99, 'quantity' => 2]
+                ['id' => $notFoundProductId, 'quantity' => 2]
             ]
         ];
 
@@ -117,67 +87,48 @@ class OrderControllerTest extends BaseTestCase
 
     public function testStoreOrderInvalidQuantity()
     {
-        $customer = Customer::create([
-            'nome' => 'Nome Antigo',
-            'email' => 'mavibole@gmail.com', //email valido
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Antiga, 123',
-            'complemento' => 'Apto 123',
-            'bairro' => 'Antigo Bairro',
-            'cep' => '12345-678'
-        ]);
-
-        
-        $product = Product::create([
-            'nome' => 'Produto 1',
-            'preco' => 10.5,
-            'foto' => 'foto1.jpg'
-        ]);
+        $customer = Customer::factory()->create();
+        $product = Product::factory()->create();
 
         $orderData = [
             'customer_id' => $customer->id,
             'products' => [
-                ['id' => $product->id]
+                ['id' => $product->id, 'quantity' => 0]
             ]
         ];
 
         $response = $this->post('/orders', $orderData);
         $response->seeStatusCode(422);
         $response->seeJsonContains([
-            'products.0.quantity' => ["O campo quantidade do produto é obrigatório."]
+            'products.0.quantity' => ["O campo quantidade do produto deve ser no mínimo 1."]
+        ]);
+
+        $orderData = [
+            'customer_id' => $customer->id,
+            'products' => [
+                ['id' => $product->id, 'quantity' => 'asd']
+            ]
+        ];
+        $response = $this->post('/orders', $orderData);
+        $response->seeStatusCode(422);
+        $response->seeJsonContains([
+            'products.0.quantity' => ["O campo quantidade do produto deve ser um número inteiro."]
         ]);
     }
 
     public function testIndexOrderSuccessfully()
     {
-        $customer = Customer::create([
-            'nome' => 'Cliente Teste',
-            'email' => 'cliente@teste.com',
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Teste, 123',
-            'complemento' => 'Apto 123',
-            'bairro' => 'Bairro Teste',
-            'cep' => '12345-678'
-        ]);
+        $customer = Customer::factory()->create();
 
-        $product1 = Product::create([
-            'nome' => 'Produto 1',
-            'preco' => 10.5,
-            'foto' => 'foto1.jpg'
-        ]);
-
-        $product2 = Product::create([
-            'nome' => 'Produto 2',
-            'preco' => 20.5,
-            'foto' => 'foto2.jpg'
-        ]);
+        $products = Product::factory()->count(2)->create();
 
         $order = Order::create([
             'customer_id' => $customer->id
         ]);
 
-        $order->products()->attach($product1->id, ['quantity' => 2]);
-        $order->products()->attach($product2->id, ['quantity' => 3]);
+        $products->map(function ($product) use ($order) {
+            $order->products()->attach($product->id, ['quantity' => rand(1, 5)]);
+        });
 
         $response = $this->get('/orders');
 
@@ -205,34 +156,17 @@ class OrderControllerTest extends BaseTestCase
 
     public function testShowOrderFound()
     {
-        $customer = Customer::create([
-            'nome' => 'Cliente Teste',
-            'email' => 'cliente@teste.com',
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Teste, 123',
-            'complemento' => 'Apto 123',
-            'bairro' => 'Bairro Teste',
-            'cep' => '12345-678'
-        ]);
+        $customer = Customer::factory()->create();
 
-        $product1 = Product::create([
-            'nome' => 'Produto 1',
-            'preco' => 10.5,
-            'foto' => 'foto1.jpg'
-        ]);
-
-        $product2 = Product::create([
-            'nome' => 'Produto 2',
-            'preco' => 20.5,
-            'foto' => 'foto2.jpg'
-        ]);
+        $products = Product::factory()->count(2)->create();
 
         $order = Order::create([
             'customer_id' => $customer->id
         ]);
 
-        $order->products()->attach($product1->id, ['quantity' => 2]);
-        $order->products()->attach($product2->id, ['quantity' => 3]);
+        $products->map(function ($product) use ($order) {
+            $order->products()->attach($product->id, ['quantity' => rand(1, 5)]);
+        });
 
         $response = $this->get("/orders/{$order->id}");
 
@@ -266,47 +200,28 @@ class OrderControllerTest extends BaseTestCase
 
     public function testUpdateOrder()
     {
-        $customer = Customer::create([
-            'nome' => 'Cliente Teste',
-            'email' => 'cliente@teste.com',
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Teste, 123',
-            'complemento' => 'Apto 123',
-            'bairro' => 'Bairro Teste',
-            'cep' => '12345-678'
-        ]);
+        $customer = Customer::factory()->create();
 
-        $product1 = Product::create([
-            'nome' => 'Produto 1',
-            'preco' => 10.5,
-            'foto' => 'foto1.jpg'
-        ]);
-
-        $product2 = Product::create([
-            'nome' => 'Produto 2',
-            'preco' => 20.5,
-            'foto' => 'foto2.jpg'
-        ]);
-
-        $product3 = Product::create([
-            'nome' => 'Produto 3',
-            'preco' => 30.5,
-            'foto' => 'foto3.jpg'
-        ]);
+        $products = Product::factory()->count(3)->create();
 
         $order = Order::create([
-            'customer_id' => $customer->id
+            'customer_id' => $customer->id,
         ]);
 
-        $order->products()->attach($product1->id, ['quantity' => 2]);
-        $order->products()->attach($product2->id, ['quantity' => 3]);
+        $products->map(function ($product) use ($order) {
+            $order->products()->attach($product->id, ['quantity' => rand(1, 5)]);
+        });
+
+        $newProducts = Product::factory()->count(2)->create();
 
         $updateData = [
             'customer_id' => $customer->id,
-            'products' => [
-                ['id' => $product1->id, 'quantity' => 1],
-                ['id' => $product3->id, 'quantity' => 2],
-            ]
+            'products' => $newProducts->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'quantity' => rand(1, 5)
+                ];
+            })->toArray()
         ];
 
         $response = $this->put("/orders/{$order->id}", $updateData);
@@ -333,34 +248,17 @@ class OrderControllerTest extends BaseTestCase
 
     public function testDestroyOrder()
     {
-        $customer = Customer::create([
-            'nome' => 'Cliente Teste',
-            'email' => 'cliente@teste.com',
-            'nascimento' => '1990-01-01',
-            'endereco' => 'Rua Teste, 123',
-            'complemento' => 'Apto 123',
-            'bairro' => 'Bairro Teste',
-            'cep' => '12345-678'
-        ]);
+        $customer = Customer::factory()->create();
 
-        $product1 = Product::create([
-            'nome' => 'Produto 1',
-            'preco' => 10.5,
-            'foto' => 'foto1.jpg'
-        ]);
-
-        $product2 = Product::create([
-            'nome' => 'Produto 2',
-            'preco' => 20.5,
-            'foto' => 'foto2.jpg'
-        ]);
+        $products = Product::factory()->count(2)->create();
 
         $order = Order::create([
             'customer_id' => $customer->id
         ]);
 
-        $order->products()->attach($product1->id, ['quantity' => 2]);
-        $order->products()->attach($product2->id, ['quantity' => 3]);
+        $products->map(function ($product) use ($order) {
+            $order->products()->attach($product->id, ['quantity' => rand(1, 5)]);
+        });
 
         $response = $this->delete("/orders/{$order->id}");
 

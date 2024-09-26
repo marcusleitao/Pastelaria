@@ -10,6 +10,7 @@ use App\Models\Order;
 class Customer extends Model
 {
     use SoftDeletes;
+    use HasFactory;
 
     protected $fillable = [
         'nome', 'email', 'nascimento', 'endereco',
