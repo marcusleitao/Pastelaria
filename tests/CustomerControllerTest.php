@@ -16,9 +16,9 @@ class CustomerControllerTest extends TestCase
 
         $response = $this->post('/customers', $data);
         $response->seeStatusCode(201);
-        $response->seeJsonContains(['nome' => $data['nome']]);
+        $response->seeJsonContains($data);
 
-        $this->seeInDatabase('customers', ['email' => $data['email']]);
+        $response->seeInDatabase('customers', $data);
     }
 
     public function testStoreCustomerWithDuplicateEmail()
@@ -162,11 +162,13 @@ class CustomerControllerTest extends TestCase
     {
         Customer::factory()->create();
 
-        $response = $this->put('/customers/abc', []);
+        $data = Customer::factory()->make()->toArray();
+
+        $response = $this->put('/customers/abc', $data);
         $response->seeStatusCode(400);
         $response->seeJsonContains(['error' => 'ID inválido.']);
 
-        $response = $this->put('/customers/-1', []);
+        $response = $this->put('/customers/-1', $data);
         $response->seeStatusCode(400);
         $response->seeJsonContains(['error' => 'ID inválido.']);
         $response->notSeeInDatabase('customers', ['id' => -1]);
@@ -300,6 +302,6 @@ class CustomerControllerTest extends TestCase
 
         $response->seeStatusCode(200);
         $response->seeJsonContains(['message' => 'Cliente deletado com sucesso.']);
-        $response->SeeInDatabase('customers', ['id' => $customer->id, 'deleted_at' => date('Y-m-d H:i:s')]);
+        $response->notSeeInDatabase('customers', ['id' => $customer->id, 'deleted_at' => null]);
     }
 }

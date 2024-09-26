@@ -1,55 +1,30 @@
 <?php
 
-namespace Tests;
+namespace Tests\Feature;
 
+use Tests\TestCase;
 use App\Models\Product;
 use Laravel\Lumen\Testing\DatabaseMigrations;
-use Laravel\Lumen\Testing\TestCase as BaseTestCase;
 
-class ProductControllerTest extends BaseTestCase
+class ProductControllerTest extends TestCase
 {
     use DatabaseMigrations;
 
-    /**
-     * Creates the application.
-     *
-     * @return \Laravel\Lumen\Application
-     */
-    public function createApplication()
-    {
-        return require __DIR__.'/../bootstrap/app.php';
-    }
-
     public function testStoreProduct()
     {
-        $data = [
-            'nome' => 'Produto Teste',
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
-        ];
+        $data = Product::factory()->make()->toArray();
 
         $response = $this->post('/products', $data);
 
         $response->seeStatusCode(201);
-        $response->seeJsonStructure([
-            'id',
-            'nome',
-            'preco',
-            'foto',
-            'created_at',
-            'updated_at',
-        ]);
+        $response->seeJsonContains($data);
 
-        $this->seeInDatabase('products', ['nome' => 'Produto Teste']);
+        $response->seeInDatabase('products', $data);
     }
 
     public function testStoreProductInvalidPrice()
     {
-        $data = [
-            'nome' => 'Produto Teste',
-            'preco' => 'preco_invalido',
-            'foto' => 'imagem_teste.jpg',
-        ];
+        $data = Product::factory()->make(['preco' => 'preco_invalido'])->toArray();
 
         $response = $this->post('/products', $data);
 
@@ -57,59 +32,22 @@ class ProductControllerTest extends BaseTestCase
         $response->seeJson(['preco' => ['O campo preço deve ser um número.']]);
     }
 
-    public function testStoreProductWithoutName()
+    public function testStoreProductWithoutRequiredFields()
     {
-        $data = [
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
-        ];
-
-        $response = $this->post('/products', $data);
-
+        $response = $this->post('/products', []);
         $response->seeStatusCode(422);
-        $response->seeJson(['nome' => ['O campo nome é obrigatório.']]);
-    }
-
-    public function testStoreProductWithoutPhoto()
-    {
-        $data = [
-            'nome' => 'Produto Teste',
-            'preco' => 99.99,
-        ];
-
-        $response = $this->post('/products', $data);
-
-        $response->seeStatusCode(422);
-        $response->seeJson(['foto' => ['O campo foto é obrigatório.']]);
-    }
-
-    public function testStoreProductWithoutPrice()
-    {
-        $data = [
-            'nome' => 'Produto Teste',
-            'foto' => 'imagem_teste.jpg',
-        ];
-
-        $response = $this->post('/products', $data);
-
-        $response->seeStatusCode(422);
-        $response->seeJson(['preco' => ['O campo preço é obrigatório.']]);
+        $response->seeJsonContains([
+            'nome' => ['O campo nome é obrigatório.'],
+            'preco' => ['O campo preço é obrigatório.'],
+            'foto' => ['O campo foto é obrigatório.']
+        ]);
     }
 
     public function testIndexProducts()
     {
-        // Cria alguns produtos para testar a listagem
-        Product::create([
-            'nome' => 'Produto 1', 
-            'preco' => 10.00,
-            'foto' => 'imagem_teste.jpg',
-        ]);
-        
-        Product::create([
-            'nome' => 'Produto 2', 
-            'preco' => 20.00,
-            'foto' => 'imagem_teste2.jpg',
-        ]);
+        $product = Product::factory()->create();
+
+        $product['preco'] = number_format($product['preco'], 2, '.', '');
 
         $response = $this->get('/products?sort_by=created_at&sort_direction=asc&per_page=15');
 
@@ -126,6 +64,8 @@ class ProductControllerTest extends BaseTestCase
                 ],
             ]
         ]);
+        $response->seeJsonContains($product->toArray());
+        $response->seeInDatabase('products', $product->toArray());
     }
 
     public function testIndexProductsInvalidSortColumn()
@@ -170,51 +110,47 @@ class ProductControllerTest extends BaseTestCase
 
     public function testShowProductsInvalidId()
     {
-        $response = $this->get('/products/abc');
+        Product::factory()->create();
 
+        $response = $this->get('/products/abc');
         $response->seeStatusCode(400);
         $response->seeJson(['error' => 'ID inválido.']);
 
         $response = $this->get('/products/-1');
-
         $response->seeStatusCode(400);
         $response->seeJson(['error' => 'ID inválido.']);
+        $response->notSeeInDatabase('products', ['id' => -1]);
     }
 
     public function testShowProducts()
     {
-        $produto = Product::create([
-            'nome' => 'Produto Teste', 
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
-        ]);
+        $product = Product::factory()->create();
 
-        $response = $this->get('/products/' . $produto->id);
+        $product['preco'] = number_format($product['preco'], 2, '.', '');
+
+        $response = $this->get('/products/' . $product->id);
         $response->seeStatusCode(200);
-        $response->seeJsonStructure([
-            'id',
-            'nome',
-            'preco',
-            'foto',
-            'created_at',
-            'updated_at',
-        ]);
+        $response->seeJsonContains($product->toArray());
+        $response->seeInDatabase('products', $product->toArray());
     }
 
     public function testShowProductsNotFound()
     {
-        $response = $this->get('/products/999');
+        Product::factory()->create();
+
+        $notFoundId = 999;
+
+        $response = $this->get('/products/' . $notFoundId);
         $response->seeStatusCode(404);
         $response->seeJson(['error' => 'Produto não encontrado.']);
+        $response->notSeeInDatabase('products', ['id' => $notFoundId]);
     }
 
     public function testUpdateProductInvalidId()
     {
-        $data = [
-            'nome' => 'Produto Teste',
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
-        ];
+        Product::factory()->create();
+
+        $data = Product::factory()->make()->toArray();
 
         $response = $this->put('/products/abc', $data);
         $response->seeStatusCode(400);
@@ -223,120 +159,59 @@ class ProductControllerTest extends BaseTestCase
         $response = $this->put('/products/-1', $data);
         $response->seeStatusCode(400);
         $response->seeJson(['error' => 'ID inválido.']);
+        $response->notSeeInDatabase('products', ['id' => -1]);
     }
 
     public function testUpdateProductNotFound()
     {
-        $data = [
-            'nome' => 'Produto Teste',
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
-        ];
+        $notFoundId = 999;
 
-        $response = $this->put('/products/999', $data);
+        Product::factory()->create();
+
+        $data = Product::factory()->make()->toArray();
+
+        $response = $this->put('/products/' . $notFoundId, $data);
         $response->seeStatusCode(404);
         $response->seeJson(['error' => 'Produto não encontrado.']);
+        $response->notSeeInDatabase('products', ['id' => $notFoundId]);
     }
 
     public function testUpdateProduct()
     {
-        $produto = Product::create([
-            'nome' => 'Produto Teste', 
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
-        ]);
+        $product = Product::factory()->create();
 
-        $data = [
-            'nome' => 'Produto Teste Atualizado',
-            'preco' => 199.99,
-            'foto' => 'imagem_teste_atualizada.jpg',
-        ];
+        $updatedData = Product::factory()->make()->toArray();
 
-        $response = $this->put('/products/' . $produto->id, $data);
+        $response = $this->put('/products/' . $product->id, $updatedData);
         $response->seeStatusCode(200);
-        $response->seeJsonStructure([
-            'id',
-            'nome',
-            'preco',
-            'foto',
-            'created_at',
-            'updated_at',
-        ]);
+        $response->seeJsonContains($updatedData);
 
-        $this->seeInDatabase('products', ['nome' => 'Produto Teste Atualizado']);
+        $this->notSeeInDatabase('products', $product->toArray());
+        $this->seeInDatabase('products', ['id' => $product->id] + $updatedData);
     }
 
     public function testUpdateProductInvalidPrice()
     {
-        $produto = Product::create([
-            'nome' => 'Produto Teste', 
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
-        ]);
+        $product = Product::factory()->create();
 
-        $data = [
-            'nome' => 'Produto Teste Atualizado',
-            'preco' => 'preco_invalido',
-            'foto' => 'imagem_teste_atualizada.jpg',
-        ];
+        $data = Product::factory()->make(['preco' => 'preco_invalido'])->toArray();
 
-        $response = $this->put('/products/' . $produto->id, $data);
+        $response = $this->put('/products/' . $product->id, $data);
         $response->seeStatusCode(422);
         $response->seeJson(['preco' => ['O campo preço deve ser um número.']]);
     }
 
-    public function testUpdateProductWithoutName()
+    public function testUpdateProductWithoutRequiredFields()
     {
-        $produto = Product::create([
-            'nome' => 'Produto Teste', 
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
+        $product = Product::factory()->create();
+
+        $response = $this->put('/products/' . $product->id, []);
+        $response->seeJsonContains([
+            'nome' => ['O campo nome é obrigatório.'],
+            'foto' => ['O campo foto é obrigatório.'],
+            'preco' => ['O campo preço é obrigatório.']
         ]);
-
-        $data = [
-            'preco' => 199.99,
-            'foto' => 'imagem_teste_atualizada.jpg',
-        ];
-
-        $response = $this->put('/products/' . $produto->id, $data);
         $response->seeStatusCode(422);
-        $response->seeJson(['nome' => ['O campo nome é obrigatório.']]);
-    }
-
-    public function testUpdateProductWithoutPhoto()
-    {
-        $produto = Product::create([
-            'nome' => 'Produto Teste', 
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
-        ]);
-
-        $data = [
-            'nome' => 'Produto Teste Atualizado',
-            'preco' => 199.99,
-        ];
-
-        $response = $this->put('/products/' . $produto->id, $data);
-        $response->seeStatusCode(422);
-        $response->seeJson(['foto' => ['O campo foto é obrigatório.']]);
-    }
-
-    public function testUpdateProductWithoutPrice()
-    {
-        $produto = Product::create([
-            'nome' => 'Produto Teste', 
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
-        ]);
-
-        $data = [
-            'nome' => 'Produto Teste Atualizado',
-            'foto' => 'imagem_teste_atualizada.jpg',
-        ];
-
-        $response = $this->put('/products/' . $produto->id, $data);
-        $response->seeStatusCode(422);
-        $response->seeJson(['preco' => ['O campo preço é obrigatório.']]);
     }
 
     public function testDestroyProductInvalidId()
@@ -352,23 +227,24 @@ class ProductControllerTest extends BaseTestCase
 
     public function testDestroyProductNotFound()
     {
-        $response = $this->delete('/products/999');
+        Product::factory()->create();
+
+        $notFoundId = 999;
+
+        $response = $this->delete('/products/' . $notFoundId);
         $response->seeStatusCode(404);
         $response->seeJson(['error' => 'Produto não encontrado.']);
+        $response->notSeeInDatabase('products', ['id' => $notFoundId]);
     }
 
     public function testDestroyProduct()
     {
-        $produto = Product::create([
-            'nome' => 'Produto Teste', 
-            'preco' => 99.99,
-            'foto' => 'imagem_teste.jpg',
-        ]);
+        $product = Product::factory()->create();
 
-        $response = $this->delete('/products/' . $produto->id);
+        $response = $this->delete('/products/' . $product->id);
         $response->seeStatusCode(200);
         $response->seeJson(['message' => 'Produto removido com sucesso.']);
 
-        $this->notSeeInDatabase('products', ['nome' => 'Produto Teste', 'deleted_at' => null]);
+        $this->notSeeInDatabase('products', ['id' => $product->id, 'deleted_at' => null]);
     }
 }
